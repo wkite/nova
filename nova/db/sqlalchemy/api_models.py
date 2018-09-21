@@ -608,6 +608,20 @@ class ResourceProviderTrait(API_BASE):
                                   nullable=False)
 
 
+class NUMATopology(API_BASE):
+    """Represents a NUMA topology."""
+
+    __tablename__ = "numa_topologies"
+    __table_args__ = (
+        schema.UniqueConstraint('id', name='uniq_uuid0id'),
+    )
+
+    id = Column(Integer, primary_key=True, nullable=False, autoincrement=True)
+    uuid = Column(String(36), nullable=False)
+    nova_numa_topology = Column(Text)
+    zun_numa_topology = Column(Text)
+
+
 class Project(API_BASE):
     """The project is the Keystone project."""
 

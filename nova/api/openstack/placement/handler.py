@@ -33,6 +33,7 @@ from nova.api.openstack.placement.handlers import aggregate
 from nova.api.openstack.placement.handlers import allocation
 from nova.api.openstack.placement.handlers import allocation_candidate
 from nova.api.openstack.placement.handlers import inventory
+from nova.api.openstack.placement.handlers import numa_topology
 from nova.api.openstack.placement.handlers import resource_class
 from nova.api.openstack.placement.handlers import resource_provider
 from nova.api.openstack.placement.handlers import root
@@ -125,6 +126,11 @@ ROUTE_DECLARATIONS = {
     },
     '/usages': {
         'GET': usage.get_total_usages,
+    },
+    '/resource_providers/{uuid}/numa_topologies': {
+        'GET': numa_topology.get_numa_topologies_for_resource_provider,
+        'PUT': numa_topology.update_numa_topologies_for_resource_provider,
+        'DELETE': numa_topology.delete_numa_topologies_for_resource_provider
     },
 }
 

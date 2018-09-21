@@ -2598,6 +2598,84 @@ class TraitList(base.ObjectListBase, base.VersionedObject):
 
 
 @base.VersionedObjectRegistry.register_if(False)
+class NUMATopology(base.VersionedObject, base.TimestampedObject):
+    fields = {
+        'uuid': fields.UUIDField(nullable=False),
+        'nova_numa_topology': fields.StringField(nullable=True),
+        'zun_numa_topology': fields.StringField(nullable=True),
+    }
+
+    @staticmethod
+    def _from_db_object(context, numa_topology, db_numa_topology):
+        for key in numa_topology.fields:
+            setattr(numa_topology, key, db_numa_topology[key])
+        numa_topology.obj_reset_changes()
+        numa_topology._context = context
+        return numa_topology
+
+    @staticmethod
+    @db_api.placement_context_manager.reader
+    def _get_by_uuid_from_db(context, uuid):
+        result = context.session.query(models.NUMATopology).filter_by(
+            uuid=uuid).first()
+        if not result:
+            raise exception.NUMATopologyNotFound(uuid=uuid)
+        return result
+
+    @classmethod
+    def get_by_resource_provider_uuid(cls, context, uuid):
+        db_numa_topology = cls._get_by_uuid_from_db(context, six.text_type(
+            uuid))
+        return cls._from_db_object(context, cls(), db_numa_topology)
+
+    @staticmethod
+    @db_api.placement_context_manager.writer
+    def _create_in_db(context, updates):
+        numa_topology = models.NUMATopology()
+        numa_topology.uuid = updates['uuid']
+        context.session.add(numa_topology)
+        return numa_topology
+
+    def create(self):
+        updates = self.obj_get_changes()
+        try:
+            self._create_in_db(self._context, updates)
+        except db_exc.DBDuplicateEntry:
+            raise exception.NUMATopologyExists(uuid=self.uuid)
+
+    @staticmethod
+    @db_api.placement_context_manager.writer
+    def _update_nova_in_db(context, uuid, update):
+        context.session.query(models.NUMATopology).filter(
+            models.NUMATopology.uuid == uuid).update(
+            {'nova_numa_topology': update})
+
+    def update_nova(self):
+        uuid = self.uuid
+        update = self.nova_numa_topology
+        self._update_nova_in_db(self._context, uuid, update)
+
+    @staticmethod
+    @db_api.placement_context_manager.writer
+    def _update_zun_in_db(context, uuid, update):
+        context.session.query(models.NUMATopology).filter(
+            models.NUMATopology.uuid == uuid).update(
+            {'zun_numa_topology': update})
+
+    def update_zun(self):
+        uuid = self.uuid
+        update = self.zun_numa_topology
+        self._update_zun_in_db(self._context, uuid, update)
+
+    @staticmethod
+    @db_api.placement_context_manager.writer
+    def delete_by_resource_provider_uuid(context, uuid):
+        return context.session.query(models.NUMATopology). \
+            filter(models.NUMATopology.uuid == uuid). \
+            delete(synchronize_session=False)
+
+
+@base.VersionedObjectRegistry.register_if(False)
 class AllocationRequestResource(base.VersionedObject):
 
     fields = {

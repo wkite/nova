@@ -182,6 +182,17 @@ class TraitInUse(_BaseException):
 class TraitNotFound(NotFound):
     msg_fmt = _("No such trait(s): %(names)s.")
 
+class NUMATopologyExists(_BaseException):
+    msg_fmt = _("The NUMATopology %(uuid)s already exists")
+
+
+class NUMATopologyInUse(_BaseException):
+    msg_fmt = _("The NUMATopology %(uuid)s is in use by a resource provider.")
+
+
+class NUMATopologyNotFound(NotFound):
+    msg_fmt = _("No such NUMATopology: %(uuid)s.")
+
 
 class ProjectNotFound(NotFound):
     msg_fmt = _("No such project(s): %(external_id)s.")

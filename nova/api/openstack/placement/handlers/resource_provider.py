@@ -32,7 +32,7 @@ from nova.i18n import _
 def _serialize_links(environ, resource_provider):
     url = util.resource_provider_url(environ, resource_provider)
     links = [{'rel': 'self', 'href': url}]
-    rel_types = ['inventories', 'usages']
+    rel_types = ['inventories', 'usages', 'numa_topologies']
     want_version = environ[microversion.MICROVERSION_ENVIRON]
     if want_version >= (1, 1):
         rel_types.append('aggregates')
