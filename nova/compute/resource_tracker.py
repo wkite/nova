@@ -905,6 +905,7 @@ class ResourceTracker(object):
             prov_tree.update_inventory(nodename, inv_data)
             # Flush any changes.
             reportclient.update_from_provider_tree(context, prov_tree)
+            reportclient.update_nova_numa_topology(context, compute_node)
         except NotImplementedError:
             # update_provider_tree isn't implemented yet - try get_inventory
             try:

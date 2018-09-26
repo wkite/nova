@@ -2149,6 +2149,11 @@ class ResourceProviderTraitRetrievalFailed(NovaException):
                 " %(uuid)s")
 
 
+class ResourceProviderNUMATopologyRetrievalFailed(NovaException):
+    msg_fmt = _("Failed to get NUMA topologies for resource provider with UUID"
+                " %(uuid)s")
+
+
 class ResourceProviderCreationFailed(NovaException):
     msg_fmt = _("Failed to create resource provider %(name)s")
 

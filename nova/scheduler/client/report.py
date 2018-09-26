@@ -17,6 +17,7 @@ import collections
 import contextlib
 import copy
 import functools
+import json
 import random
 import re
 import retrying
@@ -57,6 +58,8 @@ POST_ALLOCATIONS_API_VERSION = '1.13'
 
 AggInfo = collections.namedtuple('AggInfo', ['aggregates', 'generation'])
 TraitInfo = collections.namedtuple('TraitInfo', ['traits', 'generation'])
+NUMATopologyInfo = collections.namedtuple('NUMATopologyInfo',
+                                          ['numa_topologies'])
 
 
 def warn_limit(self, msg):
@@ -433,6 +436,23 @@ class SchedulerReportClient(object):
             {'placement_req_id': placement_req_id, 'uuid': rp_uuid,
              'status_code': resp.status_code, 'err_text': resp.text})
         raise exception.ResourceProviderTraitRetrievalFailed(uuid=rp_uuid)
+
+    @safe_connect
+    def _get_provider_numa_topologies(self, context, rp_uuid):
+        resp = self.get("/resource_providers/%s/numa_topologies" % rp_uuid,
+                        version='1.14', global_request_id=context.global_id)
+        if resp.status_code == 200:
+            json = resp.json()
+            return NUMATopologyInfo(numa_topologies=json['numa_topologies'])
+        placement_req_id = get_placement_request_id(resp)
+        LOG.error(
+            "[%(placement_req_id)s] Failed to retrieve NUMA Topologies from "
+            "placement API for resource provider with UUID %(uuid)s. Got "
+            "%(status_code)d: %(err_text)s.",
+            {'placement_req_id': placement_req_id, 'uuid': rp_uuid,
+             'status_code': resp.status_code, 'err_text': resp.text})
+        raise exception.ResourceProviderNUMATopologyRetrievalFailed(
+            uuid=rp_uuid)
 
     @safe_connect
     def _get_resource_provider(self, context, uuid):
@@ -2105,3 +2125,38 @@ class SchedulerReportClient(object):
         new_aggs = existing_aggs - set([agg_uuid])
         self.set_aggregates_for_provider(
             context, rp_uuid, new_aggs, use_cache=False, generation=gen)
+
+    @safe_connect
+    @retries
+    def update_nova_numa_topology(self, context, compute_node):
+        numa_topology = json.loads(compute_node.numa_topology)
+        nova_numa_topology = []
+        for cell in numa_topology['nova_object.data']['cells']:
+            data = cell['nova_object.data']
+            nova_numa_topology.append(
+                dict(memory_usage=data['memory_usage'], memory=data['memory'],
+                     cpuset=data['cpuset'], pinned_cpus=data['pinned_cpus'],
+                     cpu_usage=data['cpu_usage'], id=data['id']))
+        rp_uuid = compute_node.uuid
+        payload = {
+            'nova_numa_topology': nova_numa_topology,
+            'uuid': rp_uuid,
+        }
+        print('payload', payload)
+        url = '/resource_providers/%s/numa_topologies' % rp_uuid
+        r = self.put(url, payload, version='1.14',
+                     global_request_id=context.global_id)
+        if r.status_code != 200:
+            if 'concurrently updated' in r.text:
+                reason = ('another process changed the resource providers '
+                          'involved in our attempt to nova numa topology for '
+                          '%s' % rp_uuid)
+                raise Retry('update_nova_numa_topology', reason)
+            else:
+                LOG.warning(
+                    'Unable to submit nova numa topology for instance '
+                    '%(uuid)s (%(code)i %(text)s)',
+                    {'uuid': rp_uuid,
+                     'code': r.status_code,
+                     'text': r.text})
+        return r.status_code == 200
