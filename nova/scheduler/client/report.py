@@ -438,9 +438,9 @@ class SchedulerReportClient(object):
         raise exception.ResourceProviderTraitRetrievalFailed(uuid=rp_uuid)
 
     @safe_connect
-    def _get_provider_numa_topologies(self, context, rp_uuid):
+    def _get_provider_numa_topologies(self, rp_uuid):
         resp = self.get("/resource_providers/%s/numa_topologies" % rp_uuid,
-                        version='1.14', global_request_id=context.global_id)
+                        version='1.14')
         if resp.status_code == 200:
             json = resp.json()
             return NUMATopologyInfo(numa_topologies=json['numa_topologies'])
@@ -2160,3 +2160,18 @@ class SchedulerReportClient(object):
                      'code': r.status_code,
                      'text': r.text})
         return r.status_code == 200
+
+    def get_numa_topology_with_nova(self, all_numa_topo, nova_numa_topology):
+        nova_numa_topology = json.loads(nova_numa_topology)
+        numa_topology_cells = []
+        for data in nova_numa_topology['nova_object.data']['cells']:
+            cell = data['nova_object.data']
+            for node in all_numa_topo.numa_topologies:
+                if cell['id'] == node['id']:
+                    cell['memory_usage'] = node['memory_usage']
+                    cell['cpu_usage'] = node['cpu_usage']
+                    cell['pinned_cpus'] = node['pinned_cpus']
+            data['nova_object.data'] = cell
+            numa_topology_cells.append(data)
+        nova_numa_topology['nova_object.data']['cells'] = numa_topology_cells
+        return json.dumps(nova_numa_topology)

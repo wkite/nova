@@ -38,6 +38,7 @@ from nova import objects
 from nova.pci import stats as pci_stats
 from nova.scheduler import filters
 from nova.scheduler import weights
+from nova.scheduler.client import report
 from nova import utils
 from nova.virt import hardware
 
@@ -110,6 +111,7 @@ class HostState(object):
         self.nodename = node
         self.uuid = None
         self._lock_name = (host, node)
+        self.placement_client = report.SchedulerReportClient()
 
         # Mutable available resources.
         # These will change as resources are virtually "consumed".
@@ -222,7 +224,10 @@ class HostState(object):
         self.vcpus_total = compute.vcpus
         self.vcpus_used = compute.vcpus_used
         self.updated = compute.updated_at
-        self.numa_topology = compute.numa_topology
+        total_numa_topo = self.placement_client._get_provider_numa_topologies(
+            self.uuid)
+        self.numa_topology = self.placement_client.get_numa_topology_with_nova(
+            total_numa_topo, compute.numa_topology)
         self.pci_stats = pci_stats.PciDeviceStats(
             stats=compute.pci_device_pools)
 

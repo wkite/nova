@@ -22,6 +22,7 @@ from oslo_log import log as logging
 from nova import exception
 from nova.i18n import _
 from nova import objects
+from nova.scheduler.client import report
 from nova.virt import hardware
 
 
@@ -82,6 +83,7 @@ class Claim(NopClaim):
         self._numa_topology_loaded = False
         self.tracker = tracker
         self._pci_requests = pci_requests
+        self.placement_client = report.SchedulerReportClient()
 
         if not overhead:
             overhead = {'memory_mb': 0,
@@ -203,8 +205,12 @@ class Claim(NopClaim):
                          if 'numa_topology' in resources else None)
         requested_topology = self.numa_topology
         if host_topology:
+            numa_topo = self.placement_client._get_provider_numa_topologies(
+                resources.uuid)
+            numa_topology = self.placement_client.get_numa_topology_with_nova(
+                numa_topo, host_topology)
             host_topology = objects.NUMATopology.obj_from_db_obj(
-                    host_topology)
+                numa_topology)
             pci_requests = self._pci_requests
             pci_stats = None
             if pci_requests.requests:
