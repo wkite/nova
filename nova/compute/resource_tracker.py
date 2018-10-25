@@ -45,6 +45,7 @@ from nova.scheduler import client as scheduler_client
 from nova.scheduler import utils as scheduler_utils
 from nova import utils
 from nova.virt import hardware
+import uuid
 
 CONF = nova.conf.CONF
 
@@ -580,6 +581,7 @@ class ResourceTracker(object):
         # to be initialized with resource values.
         cn = objects.ComputeNode(context)
         cn.host = self.host
+        cn.uuid = unicode(uuid.uuid5(uuid.NAMESPACE_DNS, str(cn.host)))
         self._copy_resources(cn, resources)
         self.compute_nodes[nodename] = cn
         cn.create()
