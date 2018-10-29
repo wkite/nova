@@ -52,7 +52,7 @@ class ViewBuilder(common.ViewBuilder):
     # These are the lazy-loadable instance attributes required for showing
     # details about an instance. Add to this list as new things need to be
     # shown.
-    _show_expected_attrs = ['flavor', 'info_cache', 'metadata']
+    _show_expected_attrs = ['flavor', 'info_cache', 'metadata', 'numa_topology']
 
     def __init__(self):
         """Initialize view builder."""
@@ -136,6 +136,7 @@ class ViewBuilder(common.ViewBuilder):
                 "image": self._get_image(request, instance),
                 "flavor": self._get_flavor(request, instance,
                                            show_extra_specs),
+                "numa_topology": self._get_numa_topology(instance),
                 "created": utils.isotime(instance["created_at"]),
                 "updated": utils.isotime(instance["updated_at"]),
                 "addresses": self._get_addresses(request, instance,
@@ -300,6 +301,24 @@ class ViewBuilder(common.ViewBuilder):
                 "href": flavor_bookmark,
             }],
         }
+
+    def _get_numa_topology(self, instance):
+        if instance.numa_topology is None:
+            LOG.debug("Instance numa_topology is None", instance=instance)
+            return
+        else:
+            cpu = {}
+            memory = {}
+            LOG.debug("Instance numa_topology is '%s'",
+                      instance.numa_topology.cells, instance=instance)
+            for cell in instance.numa_topology.cells:
+                pcpus = []
+                memory[str(cell.id)] = cell.memory
+                if cell.cpu_pinning_raw is not None:
+                    for pcpu in cell.cpu_pinning_raw:
+                        pcpus.append(cell.cpu_pinning_raw[pcpu])
+                cpu[str(cell.id)] = pcpus
+            return {"cpu": cpu, "memory": memory}
 
     def _load_fault(self, request, instance):
         try:
