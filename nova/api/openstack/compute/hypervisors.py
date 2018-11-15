@@ -19,6 +19,7 @@ from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import strutils
 from oslo_utils import uuidutils
+import json
 import webob.exc
 
 from nova.api.openstack import api_version_request
@@ -56,12 +57,20 @@ class HypervisorsController(wsgi.Controller):
         # The 2.53 microversion returns the compute node uuid rather than id.
         uuid_for_id = api_version_request.is_supported(
             req, min_version=UUID_FOR_ID_MIN_VERSION)
+        numa_topology = json.loads(hypervisor.numa_topology)
+        hypervisor_numa_topology = []
+        for cell in numa_topology['nova_object.data']['cells']:
+            data = cell['nova_object.data']
+            hypervisor_numa_topology.append(
+                dict(cpuset=data['cpuset'], siblings=data['siblings'],
+                     id=data['id'], memory=data['memory']))
         hyp_dict = {
             'id': hypervisor.uuid if uuid_for_id else hypervisor.id,
             'hypervisor_hostname': hypervisor.hypervisor_hostname,
             'state': 'up' if alive else 'down',
             'status': ('disabled' if service.disabled
                        else 'enabled'),
+            'numa_topology': hypervisor_numa_topology,
             }
 
         if detail:
@@ -88,8 +97,25 @@ class HypervisorsController(wsgi.Controller):
                 hyp_dict['cpu_info'] = hypervisor.cpu_info
 
         if servers:
-            hyp_dict['servers'] = [dict(name=serv['name'], uuid=serv['uuid'])
-                                   for serv in servers]
+            hyp_dict['servers'] = []
+            for serv in servers:
+                if serv.numa_topology is None:
+                    instance_topo = None
+                else:
+                    cpu = {}
+                    memory = {}
+                    for cell in serv.numa_topology.cells:
+                        pcpus = []
+                        memory[str(cell.id)] = cell.memory
+                        if cell.cpu_pinning_raw is not None:
+                            for pcpu in cell.cpu_pinning_raw:
+                                pcpus.append(cell.cpu_pinning_raw[pcpu])
+                        cpu[str(cell.id)] = pcpus
+                    instance_topo = {"cpu": cpu, "memory": memory}
+                hyp_dict['servers'].append(
+                    dict(name=serv['name'], hostname=serv['hostname'],
+                         vcpus=serv['vcpus'], memory_mb=serv['memory_mb'],
+                         uuid=serv['uuid'], numa_topology=instance_topo))
 
         # Add any additional info
         if kwargs:
